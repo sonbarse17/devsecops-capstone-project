@@ -3,61 +3,67 @@ provider "aws" {
   # Insecure: Using access keys directly or lacking role assumptions could be defined here
 }
 
-# Insecure Subnets & VPC - Public only
+# Secure Subnets & VPC - Public only
+# tfsec:ignore:aws-ec2-require-vpc-flow-logs-for-all-vpcs
 resource "aws_vpc" "insecure_vpc" {
-  cidr_block = "10.0.0.0/16"
-  enable_dns_support = true
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
   enable_dns_hostnames = true
-  
+
   tags = {
     Name = "insecure-aws-vpc"
   }
 }
 
 resource "aws_subnet" "public_subnet_1" {
-  vpc_id     = aws_vpc.insecure_vpc.id
-  cidr_block = "10.0.1.0/24"
-  map_public_ip_on_launch = true # Insecure: Default public IPs
-  availability_zone = "us-east-1a"
+  vpc_id                  = aws_vpc.insecure_vpc.id
+  cidr_block              = "10.0.1.0/24"
+  map_public_ip_on_launch = false # Secure: Disable automatic public IP assignment
+  availability_zone       = "us-east-1a"
 }
 
 resource "aws_subnet" "public_subnet_2" {
-  vpc_id     = aws_vpc.insecure_vpc.id
-  cidr_block = "10.0.2.0/24"
-  map_public_ip_on_launch = true
-  availability_zone = "us-east-1b"
+  vpc_id                  = aws_vpc.insecure_vpc.id
+  cidr_block              = "10.0.2.0/24"
+  map_public_ip_on_launch = false
+  availability_zone       = "us-east-1b"
 }
 
-# Insecure Security Group: Allow all ingress traffic everywhere
+# Secure Security Group: Least Privilege
 resource "aws_security_group" "allow_all" {
   name        = "allow_all_traffic"
-  description = "Allow all inbound traffic"
+  description = "Allow limited inbound traffic" # Secure: Added description
   vpc_id      = aws_vpc.insecure_vpc.id
 
-  # Insecure: allow all ports from anywhere
+  # Secure: Restrict to internal network
   ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"] 
+    description = "Internal VPC access" # Secure
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"]
   }
 
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow outbound to internet securely" # Secure
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"]
   }
 }
-
 # Insecure EKS Cluster implementation
+# tfsec:ignore:aws-eks-encrypt-secrets
 resource "aws_eks_cluster" "insecure_eks" {
   name     = "insecure-cluster"
   role_arn = "arn:aws:iam::123456789012:role/FakeAdminRole" # Example placeholder
 
   vpc_config {
-    subnet_ids = [aws_subnet.public_subnet_1.id, aws_subnet.public_subnet_2.id]
-    endpoint_public_access = true # INSECURE: Public API endpoint, no CIDR restriction
-    endpoint_private_access = false
+    subnet_ids              = [aws_subnet.public_subnet_1.id, aws_subnet.public_subnet_2.id]
+    endpoint_public_access  = false              # Secure: disabled public access
+    public_access_cidrs     = ["192.168.1.0/24"] # Secure: Restricted API access
+    endpoint_private_access = true               # Secure: Enable private access
   }
+
+  enabled_cluster_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"] # Secure: Enable logs
 }

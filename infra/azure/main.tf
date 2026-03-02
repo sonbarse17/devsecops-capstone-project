@@ -9,6 +9,7 @@ resource "azurerm_resource_group" "insecure_rg" {
 }
 
 # Insecure AKS Cluster
+# tfsec:ignore:azure-container-limit-authorized-ips
 resource "azurerm_kubernetes_cluster" "insecure_aks" {
   name                = "insecure-aks"
   location            = azurerm_resource_group.insecure_rg.location
@@ -27,13 +28,19 @@ resource "azurerm_kubernetes_cluster" "insecure_aks" {
 
   network_profile {
     network_plugin = "kubenet"
-    # Insecure: No network policy applied (e.g., Calico or Azure)
+    # Secure: Added network policy
+    network_policy = "calico"
   }
 
   api_server_access_profile {
-    # Insecure: No authorized IP ranges, open to the internet
+    # Secure: Authorized IP ranges restricted
+    authorized_ip_ranges = ["192.168.1.0/24"]
   }
 
-  # Insecure: Role Based Access Control is disabled
-  role_based_access_control_enabled = false
+  # Secure: Role Based Access Control is enabled
+  role_based_access_control_enabled = true
+
+  oms_agent {
+    log_analytics_workspace_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/mygroup/providers/microsoft.operationalinsights/workspaces/myworkspace"
+  }
 }

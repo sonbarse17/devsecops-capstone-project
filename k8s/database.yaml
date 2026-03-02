@@ -22,7 +22,7 @@ spec:
         env:
         # Insecure: Plain-text root password
         - name: MYSQL_ROOT_PASSWORD
-          value: "password123"
+          value: "<DB_PASSWORD_SECRET>"
         - name: MYSQL_DATABASE
           value: "insecure_db"
 ---

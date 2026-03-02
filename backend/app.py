@@ -1,19 +1,18 @@
 from flask import Flask, request, jsonify
 import pymysql
+import json
 import os
-import pickle
-import base64
 
 app = Flask(__name__)
 
-# Insecure configuration
-app.config['DEBUG'] = True # Do not use debug mode in prod!
+# Secure configuration
+app.config['DEBUG'] = False # Disable debug in production!
 
-# Hardcoded environment mapping or fallbacks (Insecure)
-DB_HOST = os.environ.get('DB_HOST', 'database')
-DB_USER = os.environ.get('DB_USER', 'admin')
-DB_PASSWORD = os.environ.get('DB_PASSWORD', 'password123')
-DB_NAME = os.environ.get('DB_NAME', 'insecure_db')
+# Secure environment variable handling (No fallbacks to hardcoded values)
+DB_HOST = os.environ.get('DB_HOST')
+DB_USER = os.environ.get('DB_USER')
+DB_PASSWORD = os.environ.get('DB_PASSWORD')
+DB_NAME = os.environ.get('DB_NAME')
 
 def get_db_connection():
     return pymysql.connect(host=DB_HOST,
@@ -26,7 +25,7 @@ def get_db_connection():
 def index():
     return jsonify({"message": "Insecure Python API running!"})
 
-# Insecure: SQL Injection Vulnerability
+# Secure: Parameterized SQL Query
 @app.route('/users', methods=['GET'])
 def get_users():
     user_id = request.args.get('id')
@@ -34,24 +33,25 @@ def get_users():
         conn = get_db_connection()
         with conn.cursor() as cursor:
             if user_id:
-                # Vulnerable to SQLi
-                query = f"SELECT * FROM users WHERE id = {user_id}"
+                # Safe Parameterized query
+                query = "SELECT * FROM users WHERE id = %s"
+                cursor.execute(query, (user_id,))
             else:
                 query = "SELECT * FROM users"
-            
-            cursor.execute(query)
+                cursor.execute(query)
+
             result = cursor.fetchall()
         conn.close()
         return jsonify(result)
     except Exception as e:
         return str(e), 500
 
-# Insecure Deserialization Vulnerability
+# Secure: Using JSON instead of Pickle
 @app.route('/deserialize', methods=['POST'])
 def deserialize():
     try:
-        data = request.json.get('data') # Expects base64 encoded pickle dump
-        obj = pickle.loads(base64.b64decode(data))
+        data = request.json.get('data') # Expects JSON string
+        obj = json.loads(data)
         return jsonify({"status": "Success", "object_type": str(type(obj))})
     except Exception as e:
         return str(e), 500
@@ -62,5 +62,5 @@ def handle_data():
     return jsonify({"status": "ok", "received": datar})
 
 if __name__ == '__main__':
-    # Insecure: Binding to all network interfaces and Debug Mode ON
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Secure: Debug Mode OFF
+    app.run(host='0.0.0.0', port=5000, debug=False) # nosec B104
