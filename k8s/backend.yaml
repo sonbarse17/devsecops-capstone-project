@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: insecure-backend:latest
+        image: sonbarse17/backend:latest
         ports:
         - containerPort: 5000
         securityContext:
