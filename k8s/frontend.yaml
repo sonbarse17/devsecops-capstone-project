@@ -18,22 +18,41 @@ spec:
       - name: frontend
         image: insecure-frontend:latest
         ports:
-        - containerPort: 80
+        - containerPort: 8080
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+        resources:
+          limits:
+            cpu: "250m"
+            memory: "256Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
         env:
         - name: BACKEND_URL
           value: "http://backend-service:5000"
-        # Insecure: Missing liveness/readiness probes, no resource limits, running as root
+        # Secure: added probes, resource limits, securityContext, and unprivileged port
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: frontend-service
 spec:
-  # Insecure: NodePort exposing service to all nodes
-  type: NodePort
+  # Secure: ClusterIP instead of NodePort
+  type: ClusterIP
   ports:
   - port: 80
-    targetPort: 80
-    nodePort: 30080
+    targetPort: 8080
   selector:
     app: frontend

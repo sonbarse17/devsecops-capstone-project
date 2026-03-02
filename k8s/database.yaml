@@ -1,3 +1,12 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+type: Opaque
+stringData:
+  username: "admin"
+  password: "securepassword123"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,13 +25,26 @@ spec:
     spec:
       containers:
       - name: mysql
-        image: mysql:5.7
+        # Secure: Using updated MySQL base image
+        image: mysql:8.0
         ports:
         - containerPort: 3306
+        securityContext:
+          allowPrivilegeEscalation: false
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
         env:
-        # Insecure: Plain-text root password
+        # Secure: Credentials handled securely via Kubernetes Secrets
         - name: MYSQL_ROOT_PASSWORD
-          value: "<DB_PASSWORD_SECRET>"
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: password
         - name: MYSQL_DATABASE
           value: "insecure_db"
 ---
