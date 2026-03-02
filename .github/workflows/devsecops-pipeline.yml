@@ -1,0 +1,111 @@
+name: DevSecOps CI Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # Job 1: SAST - CodeQL Analysis
+  analyze-codeql:
+    name: CodeQL Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript, python
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-python"
+
+  # Job 2: Dependency Scanning - Snyk or npm/pip Check
+  analyze-dependencies:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Audit Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci && npm audit
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Audit Backend Dependencies (pip-audit)
+        working-directory: ./backend
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+
+  # Job 3: Infrastructure-as-Code (IaC) Scanning usings Trivy
+  analyze-iac:
+    name: Trivy IaC Scan
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner in IaC mode
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          hide-progress: false
+          format: 'table'
+          exit-code: '1' # Block merge on high/critical findings
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+  # Job 4: Container Security Scanning
+  analyze-container:
+    name: Trivy Container Scan
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build an image from Frontend Dockerfile
+        run: docker build -t insecure-frontend:${{ github.sha }} ./frontend
+
+      - name: Build an image from Backend Dockerfile
+        run: docker build -t insecure-backend:${{ github.sha }} ./backend
+
+      - name: Run Trivy scanner on Frontend image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'insecure-frontend:${{ github.sha }}'
+          format: 'table'
+          # We don't block here yet 'exit-code: 1' because our node/python images have CVEs
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Run Trivy scanner on Backend image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'insecure-backend:${{ github.sha }}'
+          format: 'table'
+          exit-code: '0' # Don't block yet, just alert
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
