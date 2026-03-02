@@ -36,6 +36,6 @@ app.post('/api/data', async (req, res) => {
     }
 });
 
-app.listen(80, () => {
-    console.log("Insecure frontend running on port 80");
+app.listen(8080, () => {
+    console.log("Secure frontend running on port 8080");
 });

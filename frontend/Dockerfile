@@ -1,15 +1,20 @@
-# Insecure: Using an outdated base image
-FROM node:14
+# Secure: Using an updated, smaller alpine base image
+FROM node:20-alpine
 
-WORKDIR /app
+# Secure: Set app directory
+WORKDIR /usr/src/app
 
-# Insecure: Running as root user (default)
+# Secure: Copy and install before copying the rest
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY . .
 
-# Insecure: Exposing privileged port 80
-EXPOSE 80
+# Secure: Assign permissions and use a non-root user (node is created by alpine base)
+RUN chown -R node:node /usr/src/app
+USER node
+
+# Secure: Exposing an unprivileged port (8080)
+EXPOSE 8080
 
 CMD ["npm", "start"]
