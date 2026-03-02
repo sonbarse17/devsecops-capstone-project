@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    app: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: insecure-frontend:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: BACKEND_URL
+          value: "http://backend-service:5000"
+        # Insecure: Missing liveness/readiness probes, no resource limits, running as root
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+spec:
+  # Insecure: NodePort exposing service to all nodes
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 30080
+  selector:
+    app: frontend

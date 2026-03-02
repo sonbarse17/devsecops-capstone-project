@@ -1,0 +1,29 @@
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    environment:
+      - BACKEND_URL=http://backend:5000
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      - DB_HOST=database
+      - DB_USER=admin
+      - DB_PASSWORD=password123
+      - DB_NAME=insecure_db
+    depends_on:
+      - database
+
+  database:
+    image: mysql:5.7
+    environment:
+      - MYSQL_ROOT_PASSWORD=password123
+      - MYSQL_DATABASE=insecure_db
+    ports:
+      - "3306:3306"

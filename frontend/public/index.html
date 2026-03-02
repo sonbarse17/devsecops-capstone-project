@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Insecure Demo App</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .vulnerable { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Welcome to the Insecure Demo App</h1>
+    <p class="vulnerable">Warning: This application is highly vulnerable by design.</p>
+    
+    <h3>Search (DOM XSS Vulnerable)</h3>
+    <form id="search-form" onsubmit="event.preventDefault(); search();">
+        <input type="text" id="query" name="query" placeholder="Enter query">
+        <button type="submit">Search</button>
+    </form>
+    <div id="results" style="margin-top:20px; padding:10px; border:1px solid #ccc;"></div>
+
+    <script>
+        function search() {
+            var query = document.getElementById('query').value;
+            // Insecure: DOM-based Cross-Site Scripting (XSS)
+            document.getElementById('results').innerHTML = "You searched for: " + query;
+        }
+    </script>
+</body>
+</html>

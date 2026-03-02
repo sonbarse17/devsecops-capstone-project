@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: insecure-backend:latest
+        ports:
+        - containerPort: 5000
+        env:
+        # Insecure: Plain-text Database credentials and configuration
+        - name: DB_HOST
+          value: "database-service"
+        - name: DB_USER
+          value: "admin"
+        - name: DB_PASSWORD
+          value: "password123"
+        - name: DB_NAME
+          value: "insecure_db"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5000
+    targetPort: 5000
+  selector:
+    app: backend
