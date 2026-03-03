@@ -22,6 +22,12 @@ spec:
         securityContext:
           runAsNonRoot: true
           allowPrivilegeEscalation: false
+          # Secure: Prevent malicious writes, enforcing an immutable container
+          readOnlyRootFilesystem: true
+          # Secure: Drop ALL capabilities that a container doesn't need
+          capabilities:
+            drop:
+              - ALL
         resources:
           limits:
             cpu: "250m"

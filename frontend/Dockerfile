@@ -1,20 +1,30 @@
-# Secure: Using an updated, smaller alpine base image
-FROM node:20-alpine
+# ==========================================
+# Builder Stage: Compile/Install Node Modules
+# ==========================================
+FROM node:20-alpine AS builder
 
-# Secure: Set app directory
-WORKDIR /usr/src/app
-
-# Secure: Copy and install before copying the rest
+WORKDIR /app
 COPY package*.json ./
+
+# Install dependencies exclusively
 RUN npm ci
 
 COPY . .
 
-# Secure: Assign permissions and use a non-root user (node is created by alpine base)
-RUN chown -R node:node /usr/src/app
-USER node
+# ==========================================
+# Runtime Stage: Google Distroless
+# ==========================================
+# Secure: No OS shell or utilities, reducing runtime attack surface
+FROM gcr.io/distroless/nodejs20-debian11
 
-# Secure: Exposing an unprivileged port (8080)
+WORKDIR /app
+
+# Copy specifically what we need from builder
+COPY --from=builder /app /app
+
+# Secure: Run as the built-in nonroot user (uid 65532)
+USER nonroot
+
 EXPOSE 8080
 
-CMD ["npm", "start"]
+CMD ["server.js"]

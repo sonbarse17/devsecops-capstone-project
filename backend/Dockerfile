@@ -1,23 +1,32 @@
-# Secure: Modern, supported python base image
-FROM python:3.10-slim
+# ==========================================
+# Builder Stage: Install dependencies
+# ==========================================
+FROM python:3.10-slim AS builder
 
 WORKDIR /app
+COPY requirements.txt .
 
-# Secure: Create a non-root user and group
-RUN addgroup --system appgroup && adduser --system --group appuser
+# Install dependencies into a specific directory for easy copying
+# Using --prefix allows us to neatly copy the installed packages
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-COPY requirements.txt ./
+# ==========================================
+# Runtime Stage: Google Distroless
+# ==========================================
+# Secure: Distroless image contains no shell, curl, or package managers
+FROM gcr.io/distroless/python3-debian12
 
-# Secure: Upgrade pip, avoid caching to reduce image size and attack surface
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Copy the dependencies from the builder stage
+COPY --from=builder /install /usr/local
 
+# Copy application source code
+WORKDIR /app
 COPY . .
 
-# Secure: Change ownership to the non-root user before running
-RUN chown -R appuser:appgroup /app
-USER appuser
+# Secure: Unprivileged user (Distroless includes a nonroot user 65532 by default)
+USER nonroot
 
 EXPOSE 5000
 
-CMD ["python", "app.py"]
+# Secure: Use absolute path to the Python runtime built into Distroless
+CMD ["/usr/bin/python3", "app.py"]

@@ -22,6 +22,12 @@ spec:
         securityContext:
           runAsNonRoot: true
           allowPrivilegeEscalation: false
+          # Secure: Prevent malicious writes to application filesystem
+          readOnlyRootFilesystem: true
+          # Secure: Minimize attack surface by dropping ALL default kernel capabilities
+          capabilities:
+            drop:
+              - ALL
         resources:
           limits:
             cpu: "250m"

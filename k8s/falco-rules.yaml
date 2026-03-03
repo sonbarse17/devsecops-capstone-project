@@ -1,0 +1,61 @@
+# Example Falco Security Rules for Runtime Protection
+# In a real environment, Falco would be deployed as a DaemonSet using Helm
+# and these rules would alert or block anomalous container activity.
+
+# ----------------------------------------------------------------------
+# Rule 1: Terminal shell in container
+# ----------------------------------------------------------------------
+# Detects if any shell interactive terminal is spawned inside a container.
+# With Distroless images, this should be impossible, but if someone binds a shell
+# or uses a different image, this is a critical alert.
+- rule: Terminal shell in container
+  desc: A shell was used as the entrypoint/exec point of a container with an attached terminal.
+  condition: >
+    spawned_process and container
+    and shell_procs and proc.tty != 0
+    and container_entrypoint
+  output: >
+    A shell was spawned in a container with an attached terminal (user=%user.name user_loginuid=%user.loginuid
+    %container.info shell=%proc.name parent=%proc.pname cmdline=%proc.cmdline terminal=%proc.tty container_id=%container.id image=%container.image.repository)
+  priority: WARNING
+  tags: [container, shell, mitre_execution]
+
+# ----------------------------------------------------------------------
+# Rule 2: Write below /etc
+# ----------------------------------------------------------------------
+# Detects any file creation or modification below the /etc directory.
+# Since we enforce readOnlyRootFilesystem, the kernel should block this,
+# but Falco adds defense-in-depth monitoring.
+- rule: Write below etc
+  desc: an attempt to write to any file below /etc
+  condition: write_etc_common
+  output: "File below /etc opened for writing (user=%user.name user_loginuid=%user.loginuid command=%proc.cmdline parent=%proc.pname pcmdline=%proc.pcmdline file=%fd.name program=%proc.name gparent=%proc.aname[2] ggparent=%proc.aname[3] gggparent=%proc.aname[4] container_id=%container.id image=%container.image.repository)"
+  priority: WARNING
+  tags: [filesystem, mitre_persistence]
+
+# ----------------------------------------------------------------------
+# Rule 3: Network Connection from Unexpected Process
+# ----------------------------------------------------------------------
+# Ensure that only our Node.js and Python processes make external network calls.
+- rule: Unexpected outbound connection
+  desc: Detect outbound network connections by unauthorized programs
+  condition: >
+    outbound
+    and container
+    and not (proc.name in (node, python3, mysqld))
+  output: "Unexpected Outbound Connection (user=%user.name command=%proc.cmdline connection=%fd.name container_id=%container.id image=%container.image.repository)"
+  priority: NOTICE
+  tags: [network, mitre_command_and_control]
+
+# ----------------------------------------------------------------------
+# Rule 4: Launch Privileged Container
+# ----------------------------------------------------------------------
+# Alerts if someone tries to bypass our SecurityContext dropping ALL capabilities.
+- rule: Launch Privileged Container
+  desc: Detect the initial process started in a privileged container.
+  condition: >
+    container_started and container
+    and container.privileged=true
+  output: Privileged container started (user=%user.name user_loginuid=%user.loginuid command=%proc.cmdline %container.info image=%container.image.repository)
+  priority: INFO
+  tags: [container, cis, mitre_privilege_escalation, mitre_lateral_movement]
