@@ -1,0 +1,60 @@
+name: Deploy Kubernetes Security
+
+on:
+  workflow_dispatch: # Allows manual triggering
+    inputs:
+      cluster:
+        description: 'Target Cluster (aws or azure)'
+        required: true
+        default: 'aws'
+
+jobs:
+  deploy-k8s:
+    name: Deploy Manifests & Policies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        if: ${{ github.event.inputs.cluster == 'aws' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Update Kubeconfig (AWS EKS)
+        if: ${{ github.event.inputs.cluster == 'aws' }}
+        run: aws eks update-kubeconfig --region us-east-1 --name insecure-cluster
+
+      - name: Azure Login
+        if: ${{ github.event.inputs.cluster == 'azure' }}
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Update Kubeconfig (Azure AKS)
+        if: ${{ github.event.inputs.cluster == 'azure' }}
+        run: az aks get-credentials --resource-group devsecops-resources --name devsecops-aks
+
+      - name: Install Kyverno Admission Controller
+        run: |
+          kubectl create -f https://github.com/kyverno/kyverno/releases/download/v1.11.4/install.yaml
+          echo "Waiting for Kyverno to be ready..."
+          kubectl wait -n kyverno --for=condition=ready pod --all --timeout=120s
+
+      - name: Apply Kyverno Security Policies
+        run: kubectl apply -f k8s/policies/
+
+      - name: Apply Zero-Trust Network Policies
+        run: kubectl apply -f k8s/network-policy.yaml
+
+      - name: Deploy Secure Application Manifests
+        run: |
+          kubectl apply -f k8s/database.yaml
+          kubectl apply -f k8s/backend.yaml
+          kubectl apply -f k8s/frontend.yaml
+
+      - name: Verify Deployment
+        run: kubectl get pods -A
