@@ -1,0 +1,33 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-image-registries
+  annotations:
+    policies.kyverno.io/title: Restrict Image Registries
+    policies.kyverno.io/category: Software Supply Chain Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Containers must only use images from approved registries to ensure
+      that only vetted software is deployed. This policy enforces that all
+      images must originate from 'sonbarse17/*' or the official 'mysql' repo.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: validate-registries
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        message: "Untrusted image registry. Images must originate from sonbarse17/* or mysql/*."
+        pattern:
+          spec:
+            =(ephemeralContainers):
+            - image: "sonbarse17/* | mysql:*"
+            =(initContainers):
+            - image: "sonbarse17/* | mysql:*"
+            containers:
+            - image: "sonbarse17/* | mysql:*"

@@ -109,3 +109,28 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+
+  # Job 5: Dynamic Application Security Testing (DAST)
+  analyze-dast:
+    name: OWASP ZAP Baseline Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Start Application Stack (Docker Compose)
+        run: |
+          docker compose up -d
+          # Wait for the frontend to be responsive
+          until curl -s http://localhost:8080 > /dev/null; do
+            echo "Waiting for frontend to start..."
+            sleep 5
+          done
+
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: 'http://localhost:8080'
+          # We don't fail the build here immediately, mainly for reporting
+          fail_action: false
+          cmd_options: '-a' # Include alpha passive rules
