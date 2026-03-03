@@ -1,6 +1,13 @@
+terraform {
+  backend "s3" {
+    bucket = "devsecops-terraform-state-bucket"
+    key    = "aws/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
 provider "aws" {
   region = "us-east-1"
-  # Insecure: Using access keys directly or lacking role assumptions could be defined here
 }
 
 # Secure Subnets & VPC (3-Tier Architecture)
@@ -170,7 +177,6 @@ resource "aws_eks_cluster" "insecure_eks" {
   role_arn = "arn:aws:iam::123456789012:role/FakeAdminRole"
 
   vpc_config {
-    # Secure: Moved to App Tier subnets instead of Public
     subnet_ids              = [aws_subnet.app_subnet_1.id, aws_subnet.app_subnet_2.id]
     security_group_ids      = [aws_security_group.app_sg.id]
     endpoint_public_access  = false

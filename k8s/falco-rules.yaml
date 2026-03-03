@@ -1,4 +1,3 @@
-# Example Falco Security Rules for Runtime Protection
 # In a real environment, Falco would be deployed as a DaemonSet using Helm
 # and these rules would alert or block anomalous container activity.
 

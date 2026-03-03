@@ -20,7 +20,7 @@ terraform {
 # Or use Vault AppRole / AWS IAM auth methods for Terraform.
 provider "vault" {
   # address = "http://127.0.0.1:8200"
-  # skip_tls_verify = true 
+  # skip_tls_verify = true
 }
 
 # ---------------------------------------------------------

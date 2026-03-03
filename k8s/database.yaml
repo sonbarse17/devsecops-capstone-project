@@ -17,14 +17,11 @@ spec:
     spec:
       containers:
       - name: mysql
-        # Secure: Using updated MySQL base image
         image: mysql:8.0
         ports:
         - containerPort: 3306
         securityContext:
           allowPrivilegeEscalation: false
-          # Secure: We cannot use readOnlyRootFileSystem for MySQL easily.
-          # Secure: Drop all capabilities except the 4 minimal ones MySQL needs to start.
           capabilities:
             drop:
               - ALL
@@ -41,7 +38,6 @@ spec:
             cpu: "250m"
             memory: "256Mi"
         env:
-        # Secure: Credentials handled securely via Kubernetes Secrets
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:

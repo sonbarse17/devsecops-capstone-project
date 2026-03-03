@@ -22,9 +22,7 @@ spec:
         securityContext:
           runAsNonRoot: true
           allowPrivilegeEscalation: false
-          # Secure: Prevent malicious writes to application filesystem
           readOnlyRootFilesystem: true
-          # Secure: Minimize attack surface by dropping ALL default kernel capabilities
           capabilities:
             drop:
               - ALL
@@ -48,14 +46,12 @@ spec:
         env:
         - name: BACKEND_URL
           value: "http://backend-service:5000"
-        # Secure: added probes, resource limits, securityContext, and unprivileged port
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: frontend-service
 spec:
-  # Secure: ClusterIP instead of NodePort
   type: ClusterIP
   ports:
   - port: 80

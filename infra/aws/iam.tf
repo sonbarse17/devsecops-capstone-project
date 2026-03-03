@@ -146,7 +146,6 @@ resource "aws_iam_role" "application_role" {
       {
         Effect = "Allow"
         Principal = {
-          Service = "eks.amazonaws.com" # Ideally IRSA with OIDC
         }
         Action = "sts:AssumeRole"
       }

@@ -22,9 +22,7 @@ spec:
         securityContext:
           runAsNonRoot: true
           allowPrivilegeEscalation: false
-          # Secure: Prevent malicious writes, enforcing an immutable container
           readOnlyRootFilesystem: true
-          # Secure: Drop ALL capabilities that a container doesn't need
           capabilities:
             drop:
               - ALL
@@ -46,7 +44,6 @@ spec:
              port: 5000
            initialDelaySeconds: 5
         env:
-        # Secure: Plain-text Database credentials removed
         - name: DB_HOST
           value: "database-service"
         - name: DB_USER

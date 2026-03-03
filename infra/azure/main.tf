@@ -1,3 +1,11 @@
+terraform {
+  backend "s3" {
+    bucket = "devsecops-terraform-state-bucket"
+    key    = "azure/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
 provider "azurerm" {
   features {}
 }
@@ -132,7 +140,6 @@ resource "azurerm_kubernetes_cluster" "secure_aks" {
     name           = "default"
     node_count     = 1
     vm_size        = "Standard_DS2_v2"
-    vnet_subnet_id = azurerm_subnet.app_subnet.id # Secure: Deploy into App Subnet
   }
 
   identity {

@@ -1,7 +1,6 @@
 # -------------------------------------------------------------
 # Default Deny Network Policy
 # -------------------------------------------------------------
-# Secure: This drops all ingress and egress network traffic for any Pod
 # in the namespace by default, establishing a ZERO TRUST boundary.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
