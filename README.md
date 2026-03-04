@@ -4,17 +4,103 @@ This repository contains an intentionally **insecure** cloud-native application 
 
 **⚠️ WARNING: Do not deploy this application or infrastructure to a production environment. It contains severe intentional security flaws.**
 
-## Architecture Overview
+## Architecture & Workflow Overview
+
+This diagram represents the hardened, production-ready state of the project after all DevSecOps practices have been applied:
+
+```mermaid
+flowchart TD
+    %% Define Styles
+    classDef gitHub fill:#24292e,color:#fff,stroke:#fff
+    classDef aws fill:#FF9900,color:#fff,stroke:#232F3E
+    classDef azure fill:#0072C6,color:#fff,stroke:#fff
+    classDef k8s fill:#326ce5,color:#fff,stroke:#fff
+    classDef security fill:#e63946,color:#fff,stroke:#fff
+    classDef db fill:#003B57,color:#fff,stroke:#fff
+    classDef app fill:#2b9348,color:#fff,stroke:#fff
+
+    subgraph Github["GitHub Actions (CI/CD Pipelines)"]
+        direction TB
+        CodePush(Developer Push) --> CodeQL[SAST: CodeQL & Bandit]
+        CodePush --> SCA[SCA: npm audit & pip-audit]
+        CodePush --> TrivyIaC[IaC Scan: Trivy]
+        CodePush --> DAST[DAST: OWASP ZAP Baseline]
+        CodePush --> ContainerScan[Container Scan: Trivy]
+        
+        DeployInfra[deploy-infra.yml]
+        DeployK8s[deploy-k8s.yml]
+    end
+
+    subgraph HashiCorp["Secrets Management"]
+        Vault[(HashiCorp Vault)]
+    end
+
+    subgraph AWS["AWS Cloud (Primary)"]
+        direction TB
+        S3[(Terraform S3 Remote State)]
+        VPC[AWS VPC - 3 Tier]
+        EKS{Elastic Kubernetes Service}
+        VPC --> EKS
+    end
+
+    subgraph Azure["Azure Cloud (Secondary)"]
+        direction TB
+        S3_Az[(Terraform S3 Remote State)]
+        VNet[Azure VNet - Segmented]
+        AKS{Azure Kubernetes Service}
+        VNet --> AKS
+    end
+
+    subgraph Kubernetes["Kubernetes Security & Microservices"]
+        direction TB
+        Admission[Kyverno Admission Controller]
+        NetPol[Zero-Trust Network Policies]
+        
+        Frontend[Frontend App: Node.js/Distroless]
+        Backend[Backend API: Python/Distroless]
+        DB[(MySQL Database)]
+        
+        %% K8s internal flow
+        Admission --> |Enforces limits & non-root| Frontend
+        Admission --> |Enforces limits & non-root| Backend
+        
+        Frontend -->|Port 5000 Only| Backend
+        Backend -->|Port 3306 Only| DB
+    end
+
+    %% Connections
+    CodeQL & SCA & TrivyIaC & DAST & ContainerScan --> |Pipeline Success| DeployInfra
+    DeployInfra --> |Terraform Apply| AWS
+    DeployInfra --> |Terraform Apply| Azure
+    DeployInfra --> |Auth| Vault
+    DeployInfra --> |State| S3
+    DeployInfra --> |State| S3_Az
+
+    DeployK8s --> |kubectl apply| Kubernetes
+    DeployK8s -.-> EKS
+    DeployK8s -.-> AKS
+    
+    Vault --> |Provides DB Password| DB
+
+    %% Apply Styles
+    class Github gitHub;
+    class AWS aws;
+    class Azure azure;
+    class Kubernetes,EKS,AKS k8s;
+    class Vault,DB db;
+    class CodeQL,SCA,TrivyIaC,DAST,ContainerScan,Admission,NetPol security;
+    class Frontend,Backend app;
+```
 
 The application is a simple microservice-based architecture:
-*   **Frontend**: Node.js/Express application.
-*   **Backend**: Python/Flask API.
-*   **Database**: MySQL database.
+*   **Frontend**: Node.js/Express application (Hardened Distroless Image).
+*   **Backend**: Python/Flask API (Hardened Distroless Image).
+*   **Database**: MySQL Database.
 
 The infrastructure components include:
-*   **Containerization**: Docker and Docker Compose.
-*   **Orchestration**: Kubernetes manifests (Deployments & Services).
-*   **Infrastructure as Code (IaC)**: Terraform configurations for AWS (EKS, VPC) and Azure (AKS).
+*   **Containerization**: Docker and multi-stage secure builds.
+*   **Orchestration**: Kubernetes manifests (Deployments, Services, Network Policies, Kyverno).
+*   **Infrastructure as Code (IaC)**: Terraform configurations for AWS (EKS, VPC) and Azure (AKS) backed by S3 Remote State and HashiCorp Vault.
 
 ## Intentional Vulnerabilities Included
 
