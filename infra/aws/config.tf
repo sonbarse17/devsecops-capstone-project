@@ -41,10 +41,20 @@ resource "aws_config_configuration_recorder" "main" {
 # -------------------------------------------------------------
 # tfsec:ignore:aws-s3-enable-bucket-logging
 # tfsec:ignore:aws-s3-enable-versioning
-# tfsec:ignore:aws-s3-encryption-customer-key
 resource "aws_s3_bucket" "config_bucket" {
   bucket_prefix = "devsecops-awsconfig-"
   force_destroy = true
+}
+
+resource "aws_kms_key" "config_bucket_kms_key" {
+  description             = "CMK for AWS Config delivery bucket encryption"
+  deletion_window_in_days = 10
+  enable_key_rotation     = true
+}
+
+resource "aws_kms_alias" "config_bucket_kms_alias" {
+  name          = "alias/devsecops-config-bucket"
+  target_key_id = aws_kms_key.config_bucket_kms_key.key_id
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "config_bucket_encryption" {
@@ -52,7 +62,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "config_bucket_enc
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.config_bucket_kms_key.arn
     }
   }
 }
@@ -88,6 +99,16 @@ resource "aws_iam_role_policy" "aws_config_s3_policy" {
             "s3:x-amz-acl" = "bucket-owner-full-control"
           }
         }
+      },
+      {
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+          "kms:DescribeKey"
+        ]
+        Effect   = "Allow"
+        Resource = aws_kms_key.config_bucket_kms_key.arn
       }
     ]
   })
