@@ -36,5 +36,7 @@ repos:
     hooks:
       - id: terraform_fmt
         always_run: true
-      - id: terraform_tfsec
+      - id: terraform_trivy
         always_run: true
+        args:
+          - --args=--severity=HIGH,CRITICAL

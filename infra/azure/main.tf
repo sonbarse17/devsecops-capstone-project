@@ -15,9 +15,6 @@ resource "azurerm_resource_group" "insecure_rg" {
   location = "East US"
 }
 
-# -------------------------------------------------------------
-# Virtual Network & Segmented Subnets
-# -------------------------------------------------------------
 resource "azurerm_virtual_network" "vnet" {
   name                = "devsecops-vnet"
   location            = azurerm_resource_group.insecure_rg.location
@@ -25,7 +22,6 @@ resource "azurerm_virtual_network" "vnet" {
   address_space       = ["10.1.0.0/16"]
 }
 
-# --- 1. Public Subnet ---
 resource "azurerm_subnet" "public_subnet" {
   name                 = "public-subnet"
   resource_group_name  = azurerm_resource_group.insecure_rg.name
@@ -33,7 +29,6 @@ resource "azurerm_subnet" "public_subnet" {
   address_prefixes     = ["10.1.1.0/24"]
 }
 
-# --- 2. App Subnet (EKS/AKS) ---
 resource "azurerm_subnet" "app_subnet" {
   name                 = "app-subnet"
   resource_group_name  = azurerm_resource_group.insecure_rg.name
@@ -41,7 +36,6 @@ resource "azurerm_subnet" "app_subnet" {
   address_prefixes     = ["10.1.2.0/24"]
 }
 
-# --- 3. Data Subnet (Databases) ---
 resource "azurerm_subnet" "data_subnet" {
   name                 = "data-subnet"
   resource_group_name  = azurerm_resource_group.insecure_rg.name
@@ -49,11 +43,7 @@ resource "azurerm_subnet" "data_subnet" {
   address_prefixes     = ["10.1.3.0/24"]
 }
 
-# -------------------------------------------------------------
-# Network Security Groups (NSGs)
-# -------------------------------------------------------------
 
-# Public NSG
 resource "azurerm_network_security_group" "public_nsg" {
   name                = "public-nsg"
   location            = azurerm_resource_group.insecure_rg.location
@@ -77,7 +67,6 @@ resource "azurerm_subnet_network_security_group_association" "public_assoc" {
   network_security_group_id = azurerm_network_security_group.public_nsg.id
 }
 
-# App NSG
 resource "azurerm_network_security_group" "app_nsg" {
   name                = "app-nsg"
   location            = azurerm_resource_group.insecure_rg.location
@@ -91,10 +80,9 @@ resource "azurerm_network_security_group" "app_nsg" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "443"
-    source_address_prefix      = "10.1.1.0/24" # Public Subnet
+    source_address_prefix      = "10.1.1.0/24"
     destination_address_prefix = "*"
   }
-  # Block other inbound, Azure defaults allow VNet inbound
 }
 
 resource "azurerm_subnet_network_security_group_association" "app_assoc" {
@@ -102,7 +90,6 @@ resource "azurerm_subnet_network_security_group_association" "app_assoc" {
   network_security_group_id = azurerm_network_security_group.app_nsg.id
 }
 
-# Data NSG
 resource "azurerm_network_security_group" "data_nsg" {
   name                = "data-nsg"
   location            = azurerm_resource_group.insecure_rg.location
@@ -116,7 +103,7 @@ resource "azurerm_network_security_group" "data_nsg" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "3306"
-    source_address_prefix      = "10.1.2.0/24" # App Subnet
+    source_address_prefix      = "10.1.2.0/24"
     destination_address_prefix = "*"
   }
 }
@@ -126,10 +113,6 @@ resource "azurerm_subnet_network_security_group_association" "data_assoc" {
   network_security_group_id = azurerm_network_security_group.data_nsg.id
 }
 
-# -------------------------------------------------------------
-# Secure AKS Cluster
-# -------------------------------------------------------------
-# tfsec:ignore:azure-container-limit-authorized-ips
 resource "azurerm_kubernetes_cluster" "secure_aks" {
   name                = "devsecops-aks"
   location            = azurerm_resource_group.insecure_rg.location
@@ -147,9 +130,11 @@ resource "azurerm_kubernetes_cluster" "secure_aks" {
   }
 
   network_profile {
-    network_plugin = "azure" # Better integration with NSGs
+    network_plugin = "azure"
     network_policy = "calico"
   }
+
+  api_server_authorized_ip_ranges = ["192.168.1.0/24"]
 
   api_server_access_profile {
     authorized_ip_ranges = ["192.168.1.0/24"]

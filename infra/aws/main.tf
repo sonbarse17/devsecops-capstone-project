@@ -1,17 +1,22 @@
 terraform {
-  backend "s3" {
-    bucket = "devsecops-terraform-state-bucket"
-    key    = "aws/terraform.tfstate"
-    region = "us-east-1"
-  }
+  backend "s3" {}
 }
 
 provider "aws" {
   region = "us-east-1"
 }
 
-# Secure Subnets & VPC (3-Tier Architecture)
-# tfsec:ignore:aws-ec2-require-vpc-flow-logs-for-all-vpcs
+resource "aws_kms_key" "eks_secrets_kms_key" {
+  description             = "CMK for EKS secrets encryption"
+  deletion_window_in_days = 10
+  enable_key_rotation     = true
+}
+
+resource "aws_kms_alias" "eks_secrets_kms_alias" {
+  name          = "alias/devsecops-eks-secrets"
+  target_key_id = aws_kms_key.eks_secrets_kms_key.key_id
+}
+
 resource "aws_vpc" "insecure_vpc" {
   cidr_block           = "172.16.0.0/16"
   enable_dns_support   = true
@@ -19,7 +24,6 @@ resource "aws_vpc" "insecure_vpc" {
   tags                 = { Name = "devsecops-vpc" }
 }
 
-# --- 1. Public Tier ---
 resource "aws_subnet" "public_subnet_1" {
   vpc_id                  = aws_vpc.insecure_vpc.id
   cidr_block              = "172.16.1.0/24"
@@ -36,7 +40,6 @@ resource "aws_subnet" "public_subnet_2" {
   tags                    = { Name = "public-subnet-2" }
 }
 
-# --- 2. App Tier (EKS) ---
 resource "aws_subnet" "app_subnet_1" {
   vpc_id                  = aws_vpc.insecure_vpc.id
   cidr_block              = "172.16.3.0/24"
@@ -53,7 +56,6 @@ resource "aws_subnet" "app_subnet_2" {
   tags                    = { Name = "app-subnet-2" }
 }
 
-# --- 3. Data Tier (DBs) ---
 resource "aws_subnet" "data_subnet_1" {
   vpc_id                  = aws_vpc.insecure_vpc.id
   cidr_block              = "172.16.5.0/24"
@@ -70,9 +72,6 @@ resource "aws_subnet" "data_subnet_2" {
   tags                    = { Name = "data-subnet-2" }
 }
 
-# -------------------------------------------------------------
-# Security Groups (Microsegmentation)
-# -------------------------------------------------------------
 
 resource "aws_security_group" "public_sg" {
   name        = "public_tier_sg"
@@ -128,12 +127,8 @@ resource "aws_security_group" "data_sg" {
     protocol        = "tcp"
     security_groups = [aws_security_group.app_sg.id]
   }
-  # No egress allowed from data tier unless absolutely necessary
 }
 
-# -------------------------------------------------------------
-# Network ACLs (Defense in Depth)
-# -------------------------------------------------------------
 resource "aws_network_acl" "data_nacl" {
   vpc_id     = aws_vpc.insecure_vpc.id
   subnet_ids = [aws_subnet.data_subnet_1.id, aws_subnet.data_subnet_2.id]
@@ -142,7 +137,7 @@ resource "aws_network_acl" "data_nacl" {
     protocol   = "tcp"
     rule_no    = 100
     action     = "allow"
-    cidr_block = "172.16.3.0/24" # App Subnet 1
+    cidr_block = "172.16.3.0/24"
     from_port  = 3306
     to_port    = 3306
   }
@@ -151,12 +146,11 @@ resource "aws_network_acl" "data_nacl" {
     protocol   = "tcp"
     rule_no    = 110
     action     = "allow"
-    cidr_block = "172.16.4.0/24" # App Subnet 2
+    cidr_block = "172.16.4.0/24"
     from_port  = 3306
     to_port    = 3306
   }
 
-  # Deny all other inbound
 
   egress {
     protocol   = "tcp"
@@ -168,13 +162,16 @@ resource "aws_network_acl" "data_nacl" {
   }
 }
 
-# -------------------------------------------------------------
-# EKS Cluster (Moved to App Tier)
-# -------------------------------------------------------------
-# tfsec:ignore:aws-eks-encrypt-secrets
 resource "aws_eks_cluster" "insecure_eks" {
   name     = "insecure-cluster"
-  role_arn = "arn:aws:iam::123456789012:role/FakeAdminRole"
+  role_arn = aws_iam_role.eks_cluster_role.arn
+
+  encryption_config {
+    provider {
+      key_arn = aws_kms_key.eks_secrets_kms_key.arn
+    }
+    resources = ["secrets"]
+  }
 
   vpc_config {
     subnet_ids              = [aws_subnet.app_subnet_1.id, aws_subnet.app_subnet_2.id]

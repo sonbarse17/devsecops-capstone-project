@@ -1,12 +1,4 @@
-# In a real environment, Falco would be deployed as a DaemonSet using Helm
-# and these rules would alert or block anomalous container activity.
 
-# ----------------------------------------------------------------------
-# Rule 1: Terminal shell in container
-# ----------------------------------------------------------------------
-# Detects if any shell interactive terminal is spawned inside a container.
-# With Distroless images, this should be impossible, but if someone binds a shell
-# or uses a different image, this is a critical alert.
 - rule: Terminal shell in container
   desc: A shell was used as the entrypoint/exec point of a container with an attached terminal.
   condition: >
@@ -19,12 +11,6 @@
   priority: WARNING
   tags: [container, shell, mitre_execution]
 
-# ----------------------------------------------------------------------
-# Rule 2: Write below /etc
-# ----------------------------------------------------------------------
-# Detects any file creation or modification below the /etc directory.
-# Since we enforce readOnlyRootFilesystem, the kernel should block this,
-# but Falco adds defense-in-depth monitoring.
 - rule: Write below etc
   desc: an attempt to write to any file below /etc
   condition: write_etc_common
@@ -32,10 +18,6 @@
   priority: WARNING
   tags: [filesystem, mitre_persistence]
 
-# ----------------------------------------------------------------------
-# Rule 3: Network Connection from Unexpected Process
-# ----------------------------------------------------------------------
-# Ensure that only our Node.js and Python processes make external network calls.
 - rule: Unexpected outbound connection
   desc: Detect outbound network connections by unauthorized programs
   condition: >
@@ -46,10 +28,6 @@
   priority: NOTICE
   tags: [network, mitre_command_and_control]
 
-# ----------------------------------------------------------------------
-# Rule 4: Launch Privileged Container
-# ----------------------------------------------------------------------
-# Alerts if someone tries to bypass our SecurityContext dropping ALL capabilities.
 - rule: Launch Privileged Container
   desc: Detect the initial process started in a privileged container.
   condition: >

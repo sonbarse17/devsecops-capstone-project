@@ -1,8 +1,34 @@
-# -------------------------------------------------------------
-# AWS IAM Groups & Policies
-# -------------------------------------------------------------
 
-# --- 1. Admin Group ---
+data "aws_caller_identity" "current" {}
+
+resource "aws_iam_role" "eks_cluster_role" {
+  name = "devsecops-eks-cluster-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "eks.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
+  role       = aws_iam_role.eks_cluster_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "eks_vpc_resource_controller_policy" {
+  role       = aws_iam_role.eks_cluster_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"
+}
+
+
 resource "aws_iam_group" "admin" {
   name = "devsecops-admins"
 }
@@ -12,13 +38,10 @@ resource "aws_iam_group_policy_attachment" "admin_access" {
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
 
-# --- 2. Developer Group ---
 resource "aws_iam_group" "developer" {
   name = "devsecops-developers"
 }
 
-# Limit developers to non-admin, functional access
-# tfsec:ignore:aws-iam-no-policy-wildcards
 resource "aws_iam_policy" "developer_policy" {
   name        = "DeveloperPolicy"
   description = "Allows developers to manage application resources but not IAM/Security roles"
@@ -37,7 +60,6 @@ resource "aws_iam_policy" "developer_policy" {
         ]
         Resource = "*"
       },
-      # They can assume the Application role if needed to test
       {
         Effect   = "Allow"
         Action   = "sts:AssumeRole"
@@ -52,7 +74,6 @@ resource "aws_iam_group_policy_attachment" "developer_access" {
   policy_arn = aws_iam_policy.developer_policy.arn
 }
 
-# --- 3. Auditor Group ---
 resource "aws_iam_group" "auditor" {
   name = "devsecops-auditors"
 }
@@ -63,10 +84,6 @@ resource "aws_iam_group_policy_attachment" "auditor_access" {
 }
 
 
-# -------------------------------------------------------------
-# Enforce MFA Policy (Applied to all users)
-# -------------------------------------------------------------
-# tfsec:ignore:aws-iam-no-policy-wildcards
 resource "aws_iam_policy" "force_mfa" {
   name        = "ForceMFA"
   description = "Requires MFA to perform any API actions"
@@ -102,9 +119,6 @@ resource "aws_iam_group_policy_attachment" "auditor_mfa" {
 }
 
 
-# -------------------------------------------------------------
-# AWS Users
-# -------------------------------------------------------------
 
 resource "aws_iam_user" "admin_user" {
   name = "alice-admin"
@@ -133,10 +147,6 @@ resource "aws_iam_user_group_membership" "auditor_membership" {
   groups = [aws_iam_group.auditor.name]
 }
 
-# -------------------------------------------------------------
-# Application Role
-# -------------------------------------------------------------
-# Specific least-privilege role that the Application / EKS pods can assume
 resource "aws_iam_role" "application_role" {
   name = "devsecops-application-role"
 
@@ -146,6 +156,7 @@ resource "aws_iam_role" "application_role" {
       {
         Effect = "Allow"
         Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
         }
         Action = "sts:AssumeRole"
       }
@@ -153,7 +164,6 @@ resource "aws_iam_role" "application_role" {
   })
 }
 
-# tfsec:ignore:aws-iam-no-policy-wildcards
 resource "aws_iam_policy" "application_policy" {
   name        = "ApplicationPolicy"
   description = "Least privilege access for the application"
@@ -166,7 +176,6 @@ resource "aws_iam_policy" "application_policy" {
           "s3:GetObject",
           "s3:PutObject"
         ]
-        # In a real scenario, restrict to a specific bucket ARN
         Resource = "*"
       }
     ]
@@ -178,10 +187,6 @@ resource "aws_iam_role_policy_attachment" "application_access" {
   policy_arn = aws_iam_policy.application_policy.arn
 }
 
-# -------------------------------------------------------------
-# IAM Access Analyzer
-# -------------------------------------------------------------
-# Continuously monitors for open access / external resources
 resource "aws_accessanalyzer_analyzer" "account_analyzer" {
   analyzer_name = "devsecops-account-analyzer"
   type          = "ACCOUNT"

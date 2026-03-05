@@ -1,8 +1,4 @@
-# -------------------------------------------------------------
-# AWS Config & Continuous Compliance
-# -------------------------------------------------------------
 
-# IAM Role for AWS Config to read resource configurations
 resource "aws_iam_role" "aws_config_role" {
   name = "devsecops-aws-config-role"
 
@@ -25,7 +21,6 @@ resource "aws_iam_role_policy_attachment" "aws_config_policy_attachment" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWS_ConfigRole"
 }
 
-# The AWS Config Recorder (monitors all resources in region)
 resource "aws_config_configuration_recorder" "main" {
   name     = "devsecops-config-recorder"
   role_arn = aws_iam_role.aws_config_role.arn
@@ -36,11 +31,6 @@ resource "aws_config_configuration_recorder" "main" {
   }
 }
 
-# -------------------------------------------------------------
-# Delivery Channel: S3 Bucket for AWS Config
-# -------------------------------------------------------------
-# tfsec:ignore:aws-s3-enable-bucket-logging
-# tfsec:ignore:aws-s3-enable-versioning
 resource "aws_s3_bucket" "config_bucket" {
   bucket_prefix = "devsecops-awsconfig-"
   force_destroy = true
@@ -76,7 +66,6 @@ resource "aws_s3_bucket_public_access_block" "block_public" {
   restrict_public_buckets = true
 }
 
-# tfsec:ignore:aws-iam-no-policy-wildcards
 resource "aws_iam_role_policy" "aws_config_s3_policy" {
   name = "aws-config-s3-policy"
   role = aws_iam_role.aws_config_role.id
@@ -126,11 +115,7 @@ resource "aws_config_configuration_recorder_status" "main" {
   depends_on = [aws_config_delivery_channel.main]
 }
 
-# -------------------------------------------------------------
-# AWS Config Managed Rules (Compliance Checks)
-# -------------------------------------------------------------
 
-# Rule 1: Ensure IAM Users have MFA enabled
 resource "aws_config_config_rule" "iam_user_mfa_enabled" {
   name = "iam-user-mfa-enabled"
 
@@ -141,7 +126,6 @@ resource "aws_config_config_rule" "iam_user_mfa_enabled" {
   depends_on = [aws_config_configuration_recorder.main]
 }
 
-# Rule 2: Ensure S3 buckets prohibit public read access
 resource "aws_config_config_rule" "s3_bucket_public_read_prohibited" {
   name = "s3-bucket-public-read-prohibited"
 
@@ -152,7 +136,6 @@ resource "aws_config_config_rule" "s3_bucket_public_read_prohibited" {
   depends_on = [aws_config_configuration_recorder.main]
 }
 
-# Rule 3: Ensure Security Groups do not allow unrestricted SSH
 resource "aws_config_config_rule" "restricted_ssh" {
   name = "restricted-ssh"
 
