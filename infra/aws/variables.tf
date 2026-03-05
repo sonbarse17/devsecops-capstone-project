@@ -21,3 +21,9 @@ variable "enable_account_access_analyzer" {
   type        = bool
   default     = false
 }
+
+variable "enable_kubernetes_secret_creation" {
+  description = "Whether Terraform should create the Kubernetes db-credentials secret"
+  type        = bool
+  default     = false
+}

@@ -19,6 +19,8 @@ provider "kubernetes" {
 }
 
 resource "kubernetes_secret" "db_credentials" {
+  count = var.enable_kubernetes_secret_creation ? 1 : 0
+
   metadata {
     name      = "db-credentials"
     namespace = "default"
