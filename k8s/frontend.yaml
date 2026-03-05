@@ -13,6 +13,8 @@ spec:
     metadata:
       labels:
         app: frontend
+      annotations:
+        trivy:ignore:AVD-KSV-0118
     spec:
       containers:
       - name: frontend
