@@ -60,7 +60,7 @@ jobs:
   # Job 3: Infrastructure-as-Code (IaC) Scanning usings Trivy
   analyze-iac:
     name: Trivy IaC Scan
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -78,7 +78,7 @@ jobs:
   # Job 4: Container Security Scanning
   analyze-container:
     name: Trivy Container Scan
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
