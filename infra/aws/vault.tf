@@ -1,17 +1,10 @@
 terraform {
   required_providers {
-    vault = {
-      source  = "hashicorp/vault"
-      version = "~> 3.19.0"
-    }
     kubernetes = {
       source  = "hashicorp/kubernetes"
       version = "~> 2.23.0"
     }
   }
-}
-
-provider "vault" {
 }
 
 provider "kubernetes" {
@@ -25,11 +18,6 @@ provider "kubernetes" {
   }
 }
 
-
-data "vault_generic_secret" "db_credentials" {
-  path = "secret/data/devsecops/database"
-}
-
 resource "kubernetes_secret" "db_credentials" {
   metadata {
     name      = "db-credentials"
@@ -39,8 +27,8 @@ resource "kubernetes_secret" "db_credentials" {
   type = "Opaque"
 
   data = {
-    username = data.vault_generic_secret.db_credentials.data["username"]
-    password = data.vault_generic_secret.db_credentials.data["password"]
+    username = var.db_username
+    password = var.db_password
   }
 
   depends_on = [
