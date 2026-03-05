@@ -15,3 +15,9 @@ variable "db_password" {
   type        = string
   sensitive   = true
 }
+
+variable "enable_account_access_analyzer" {
+  description = "Whether to create an account-level IAM Access Analyzer (may fail if quota is already used)"
+  type        = bool
+  default     = false
+}

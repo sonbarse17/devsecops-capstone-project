@@ -177,7 +177,6 @@ resource "aws_eks_cluster" "insecure_eks" {
     subnet_ids              = [aws_subnet.app_subnet_1.id, aws_subnet.app_subnet_2.id]
     security_group_ids      = [aws_security_group.app_sg.id]
     endpoint_public_access  = false
-    public_access_cidrs     = ["192.168.1.0/24"]
     endpoint_private_access = true
   }
 

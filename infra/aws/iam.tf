@@ -188,6 +188,7 @@ resource "aws_iam_role_policy_attachment" "application_access" {
 }
 
 resource "aws_accessanalyzer_analyzer" "account_analyzer" {
+  count         = var.enable_account_access_analyzer ? 1 : 0
   analyzer_name = "devsecops-account-analyzer"
   type          = "ACCOUNT"
 }
