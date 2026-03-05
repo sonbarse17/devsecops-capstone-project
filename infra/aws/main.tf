@@ -163,7 +163,7 @@ resource "aws_network_acl" "data_nacl" {
 }
 
 resource "aws_eks_cluster" "insecure_eks" {
-  name     = "insecure-cluster"
+  name     = var.eks_cluster_name
   role_arn = aws_iam_role.eks_cluster_role.arn
 
   encryption_config {
