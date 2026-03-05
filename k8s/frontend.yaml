@@ -13,9 +13,13 @@ spec:
     metadata:
       labels:
         app: frontend
-      annotations:
-        trivy:ignore:AVD-KSV-0118
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: frontend
         image: sonbarse17/frontend:latest

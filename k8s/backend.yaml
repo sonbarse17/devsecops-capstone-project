@@ -13,9 +13,13 @@ spec:
     metadata:
       labels:
         app: backend
-      annotations:
-        trivy:ignore:AVD-KSV-0118
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: backend
         image: sonbarse17/backend:latest

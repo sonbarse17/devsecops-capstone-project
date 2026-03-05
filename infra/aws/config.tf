@@ -47,6 +47,16 @@ resource "aws_s3_bucket" "config_bucket" {
   force_destroy = true
 }
 
+resource "aws_s3_bucket_server_side_encryption_configuration" "config_bucket_encryption" {
+  bucket = aws_s3_bucket.config_bucket.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
 resource "aws_s3_bucket_public_access_block" "block_public" {
   bucket                  = aws_s3_bucket.config_bucket.id
   block_public_acls       = true
