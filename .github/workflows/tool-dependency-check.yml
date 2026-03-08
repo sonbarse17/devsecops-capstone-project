@@ -16,9 +16,10 @@ jobs:
         with:
           project: "${{ github.repository }}"
           path: "."
-          format: "HTML,JSON"
+          format: "HTML"
           out: "reports"
           args: >
+            --format JSON
             --failOnCVSS 7
 
       - name: Upload Dependency-Check report
