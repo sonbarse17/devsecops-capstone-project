@@ -17,6 +17,10 @@ jobs:
         run: |
           test -n "${{ secrets.SONAR_TOKEN }}" || (echo "Missing SONAR_TOKEN secret" && exit 1)
           test -n "${{ secrets.SONAR_HOST_URL }}" || (echo "Missing SONAR_HOST_URL secret" && exit 1)
+          echo "Using SONAR_HOST_URL=${{ secrets.SONAR_HOST_URL }}"
+
+      - name: Validate SonarQube connectivity
+        run: curl -fsS "${{ secrets.SONAR_HOST_URL }}/api/system/status"
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v5
@@ -30,9 +34,9 @@ jobs:
             -Dsonar.qualitygate.wait=true
 
       - name: Upload Sonar scanner metadata
-        if: ${{ always() }}
+        if: ${{ always() && hashFiles('.scannerwork/report-task.txt') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: sonarqube-scan-metadata
           path: .scannerwork/report-task.txt
-          if-no-files-found: warn
+          if-no-files-found: ignore
