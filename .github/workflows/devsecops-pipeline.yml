@@ -1,132 +1,54 @@
-name: DevSecOps CI Pipeline
+name: DevSecOps CI Orchestrator
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
 
 jobs:
-  analyze-codeql:
-    name: CodeQL Security Scan
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  codeql:
+    name: 1. CodeQL
+    uses: ./.github/workflows/tool-codeql.yml
+    secrets: inherit
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: javascript, python
+  dependency-audit:
+    name: 2. Dependency Audit
+    needs: codeql
+    uses: ./.github/workflows/tool-dependency-audit.yml
+    secrets: inherit
 
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:javascript-python"
+  sonarqube:
+    name: 3. SonarQube
+    needs: dependency-audit
+    uses: ./.github/workflows/tool-sonarqube.yml
+    secrets: inherit
 
-  analyze-dependencies:
-    name: Dependency Audit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  dependency-check:
+    name: 4. Dependency-Check
+    needs: sonarqube
+    uses: ./.github/workflows/tool-dependency-check.yml
+    secrets: inherit
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
+  trivy-iac:
+    name: 5. Trivy IaC
+    needs: dependency-check
+    uses: ./.github/workflows/tool-trivy-iac.yml
+    secrets: inherit
 
-      - name: Audit Frontend Dependencies
-        working-directory: ./frontend
-        run: npm install && npm audit
+  trivy-container:
+    name: 6. Trivy Container
+    needs: trivy-iac
+    uses: ./.github/workflows/tool-trivy-container.yml
+    secrets: inherit
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Audit Backend Dependencies (pip-audit)
-        working-directory: ./backend
-        run: |
-          pip install pip-audit
-          pip-audit -r requirements.txt
-
-  analyze-iac:
-    name: Trivy IaC Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Run Trivy vulnerability scanner in IaC mode
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'config'
-          hide-progress: false
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
-
-  analyze-container:
-    name: Trivy Container Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Build an image from Frontend Dockerfile
-        run: docker build -t sonbarse17/frontend:${{ github.sha }} ./frontend
-
-      - name: Build an image from Backend Dockerfile
-        run: docker build -t sonbarse17/backend:${{ github.sha }} ./backend
-
-      - name: Run Trivy scanner on Frontend image
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'sonbarse17/frontend:${{ github.sha }}'
-          format: 'table'
-          exit-code: '0'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Run Trivy scanner on Backend image
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'sonbarse17/backend:${{ github.sha }}'
-          format: 'table'
-          exit-code: '0'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-
-  analyze-dast:
-    name: OWASP ZAP Baseline Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Start Application Stack (Docker Compose)
-        run: |
-          docker compose up -d
-          until curl -s http://localhost:8080 > /dev/null; do
-            echo "Waiting for frontend to start..."
-            sleep 5
-          done
-
-      - name: Grant ZAP write permissions to workspace
-        run: sudo chmod -R 777 $GITHUB_WORKSPACE
-
-      - name: OWASP ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.15.0
-        with:
-          target: 'http://localhost:8080'
-          fail_action: false
-          cmd_options: '-a'
-          allow_issue_writing: false
+  zap-dast:
+    name: 7. OWASP ZAP DAST
+    needs: trivy-container
+    uses: ./.github/workflows/tool-zap-dast.yml
+    secrets: inherit

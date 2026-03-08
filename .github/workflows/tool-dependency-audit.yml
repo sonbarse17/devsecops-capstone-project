@@ -1,0 +1,59 @@
+name: Tool - Dependency Audit
+
+on:
+  workflow_call:
+
+jobs:
+  analyze-dependencies:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Run dependency audits and generate reports
+        run: |
+          mkdir -p reports
+          set +e
+
+          cd frontend
+          npm install
+          npm audit --json > ../reports/npm-audit.json
+          npm_audit_exit=$?
+          cd ..
+
+          cd backend
+          pip install pip-audit
+          pip-audit -r requirements.txt -f json -o ../reports/pip-audit.json
+          pip_audit_exit=$?
+          cd ..
+
+          echo "NPM_AUDIT_EXIT_CODE=$npm_audit_exit" >> "$GITHUB_ENV"
+          echo "PIP_AUDIT_EXIT_CODE=$pip_audit_exit" >> "$GITHUB_ENV"
+
+      - name: Upload dependency audit reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-reports
+          path: reports
+          if-no-files-found: warn
+
+      - name: Enforce dependency audit gate
+        run: |
+          npm_code="${NPM_AUDIT_EXIT_CODE:-1}"
+          pip_code="${PIP_AUDIT_EXIT_CODE:-1}"
+          if [ "$npm_code" -ne 0 ] || [ "$pip_code" -ne 0 ]; then
+            echo "Dependency audit failed (npm=$npm_code, pip=$pip_code)"
+            exit 1
+          fi

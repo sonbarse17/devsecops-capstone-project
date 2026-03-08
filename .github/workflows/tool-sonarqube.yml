@@ -1,0 +1,38 @@
+name: Tool - SonarQube
+
+on:
+  workflow_call:
+
+jobs:
+  analyze-sonarqube:
+    name: SonarQube Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate SonarQube secrets
+        run: |
+          test -n "${{ secrets.SONAR_TOKEN }}" || (echo "Missing SONAR_TOKEN secret" && exit 1)
+          test -n "${{ secrets.SONAR_HOST_URL }}" || (echo "Missing SONAR_HOST_URL secret" && exit 1)
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY || github.repository }}
+            -Dsonar.projectName=${{ vars.SONAR_PROJECT_NAME || github.event.repository.name }}
+            -Dsonar.qualitygate.wait=true
+
+      - name: Upload Sonar scanner metadata
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonarqube-scan-metadata
+          path: .scannerwork/report-task.txt
+          if-no-files-found: warn

@@ -7,6 +7,10 @@ on:
         description: 'Target Cluster (aws or azure)'
         required: true
         default: 'aws'
+        type: choice
+        options:
+          - aws
+          - azure
 
 jobs:
   deploy-k8s:
@@ -29,18 +33,22 @@ jobs:
         run: aws eks update-kubeconfig --region "${{ vars.AWS_REGION || 'us-east-1' }}" --name "${{ vars.EKS_CLUSTER_NAME || 'insecure-cluster' }}"
 
       - name: Azure Login
-        if: ${{ false }}
+        if: ${{ github.event.inputs.cluster == 'azure' }}
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Update Kubeconfig (Azure AKS)
-        if: ${{ false }}
-        run: az aks get-credentials --resource-group devsecops-resources --name devsecops-aks
+        if: ${{ github.event.inputs.cluster == 'azure' }}
+        run: |
+          az aks get-credentials \
+            --resource-group "${{ vars.AKS_RESOURCE_GROUP || 'devsecops-resources' }}" \
+            --name "${{ vars.AKS_CLUSTER_NAME || 'devsecops-aks' }}" \
+            --overwrite-existing
 
       - name: Install Kyverno Admission Controller
         run: |
-          kubectl create -f https://github.com/kyverno/kyverno/releases/download/v1.11.4/install.yaml
+          kubectl apply -f https://github.com/kyverno/kyverno/releases/download/v1.11.4/install.yaml
           echo "Waiting for Kyverno to be ready..."
           kubectl wait -n kyverno --for=condition=ready pod --all --timeout=120s
 

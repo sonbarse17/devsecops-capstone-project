@@ -1,0 +1,65 @@
+name: Tool - Trivy IaC
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze-iac:
+    name: Trivy IaC Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare report directory
+        run: mkdir -p reports
+
+      - name: Run Trivy IaC scan (SARIF report)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: "config"
+          hide-progress: false
+          format: "sarif"
+          output: "reports/trivy-iac.sarif"
+          exit-code: "0"
+          ignore-unfixed: true
+          severity: "CRITICAL,HIGH"
+
+      - name: Run Trivy IaC scan (JSON report)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: "config"
+          hide-progress: false
+          format: "json"
+          output: "reports/trivy-iac.json"
+          exit-code: "0"
+          ignore-unfixed: true
+          severity: "CRITICAL,HIGH"
+
+      - name: Upload Trivy IaC reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-iac-reports
+          path: reports
+          if-no-files-found: warn
+
+      - name: Upload Trivy IaC SARIF to GitHub Security
+        if: ${{ always() }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: reports/trivy-iac.sarif
+
+      - name: Enforce Trivy IaC gate
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: "config"
+          hide-progress: false
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: "CRITICAL,HIGH"

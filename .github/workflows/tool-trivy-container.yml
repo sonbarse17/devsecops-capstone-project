@@ -1,0 +1,109 @@
+name: Tool - Trivy Container
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze-container:
+    name: Trivy Container Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare report directory
+        run: mkdir -p reports
+
+      - name: Build an image from Frontend Dockerfile
+        run: docker build -t sonbarse17/frontend:${{ github.sha }} ./frontend
+
+      - name: Build an image from Backend Dockerfile
+        run: docker build -t sonbarse17/backend:${{ github.sha }} ./backend
+
+      - name: Run Trivy scanner on Frontend image (SARIF report)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: "sonbarse17/frontend:${{ github.sha }}"
+          format: "sarif"
+          output: "reports/trivy-frontend.sarif"
+          exit-code: "0"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
+      - name: Run Trivy scanner on Frontend image (JSON report)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: "sonbarse17/frontend:${{ github.sha }}"
+          format: "json"
+          output: "reports/trivy-frontend.json"
+          exit-code: "0"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
+      - name: Run Trivy scanner on Backend image (SARIF report)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: "sonbarse17/backend:${{ github.sha }}"
+          format: "sarif"
+          output: "reports/trivy-backend.sarif"
+          exit-code: "0"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
+      - name: Run Trivy scanner on Backend image (JSON report)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: "sonbarse17/backend:${{ github.sha }}"
+          format: "json"
+          output: "reports/trivy-backend.json"
+          exit-code: "0"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
+      - name: Upload Trivy container reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-container-reports
+          path: reports
+          if-no-files-found: warn
+
+      - name: Upload Frontend Trivy SARIF to GitHub Security
+        if: ${{ always() }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: reports/trivy-frontend.sarif
+
+      - name: Upload Backend Trivy SARIF to GitHub Security
+        if: ${{ always() }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: reports/trivy-backend.sarif
+
+      - name: Enforce Trivy frontend gate
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: "sonbarse17/frontend:${{ github.sha }}"
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
+      - name: Enforce Trivy backend gate
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: "sonbarse17/backend:${{ github.sha }}"
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
