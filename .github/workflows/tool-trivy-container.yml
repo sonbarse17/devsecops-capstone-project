@@ -11,9 +11,6 @@ jobs:
   analyze-container:
     name: Trivy Container Scan
     runs-on: ubuntu-latest
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
-      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,48 +25,64 @@ jobs:
         run: docker build -t sonbarse17/backend:${{ github.sha }} ./backend
 
       - name: Run Trivy scanner on Frontend image (SARIF report)
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: "sonbarse17/frontend:${{ github.sha }}"
-          format: "sarif"
-          output: "reports/trivy-frontend.sarif"
-          exit-code: "0"
-          ignore-unfixed: true
-          vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/work" \
+            -w /work \
+            aquasec/trivy:0.56.1 \
+            image sonbarse17/frontend:${{ github.sha }} \
+            --vuln-type os,library \
+            --ignore-unfixed \
+            --severity CRITICAL,HIGH \
+            --exit-code 0 \
+            --format sarif \
+            --output reports/trivy-frontend.sarif
 
       - name: Run Trivy scanner on Frontend image (JSON report)
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: "sonbarse17/frontend:${{ github.sha }}"
-          format: "json"
-          output: "reports/trivy-frontend.json"
-          exit-code: "0"
-          ignore-unfixed: true
-          vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/work" \
+            -w /work \
+            aquasec/trivy:0.56.1 \
+            image sonbarse17/frontend:${{ github.sha }} \
+            --vuln-type os,library \
+            --ignore-unfixed \
+            --severity CRITICAL,HIGH \
+            --exit-code 0 \
+            --format json \
+            --output reports/trivy-frontend.json
 
       - name: Run Trivy scanner on Backend image (SARIF report)
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: "sonbarse17/backend:${{ github.sha }}"
-          format: "sarif"
-          output: "reports/trivy-backend.sarif"
-          exit-code: "0"
-          ignore-unfixed: true
-          vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/work" \
+            -w /work \
+            aquasec/trivy:0.56.1 \
+            image sonbarse17/backend:${{ github.sha }} \
+            --vuln-type os,library \
+            --ignore-unfixed \
+            --severity CRITICAL,HIGH \
+            --exit-code 0 \
+            --format sarif \
+            --output reports/trivy-backend.sarif
 
       - name: Run Trivy scanner on Backend image (JSON report)
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: "sonbarse17/backend:${{ github.sha }}"
-          format: "json"
-          output: "reports/trivy-backend.json"
-          exit-code: "0"
-          ignore-unfixed: true
-          vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/work" \
+            -w /work \
+            aquasec/trivy:0.56.1 \
+            image sonbarse17/backend:${{ github.sha }} \
+            --vuln-type os,library \
+            --ignore-unfixed \
+            --severity CRITICAL,HIGH \
+            --exit-code 0 \
+            --format json \
+            --output reports/trivy-backend.json
 
       - name: Upload Trivy container reports
         if: ${{ always() }}
@@ -77,36 +90,44 @@ jobs:
         with:
           name: trivy-container-reports
           path: reports
-          if-no-files-found: warn
+          if-no-files-found: ignore
 
       - name: Upload Frontend Trivy SARIF to GitHub Security
-        if: ${{ always() }}
-        uses: github/codeql-action/upload-sarif@v3
+        if: ${{ always() && hashFiles('reports/trivy-frontend.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: reports/trivy-frontend.sarif
 
       - name: Upload Backend Trivy SARIF to GitHub Security
-        if: ${{ always() }}
-        uses: github/codeql-action/upload-sarif@v3
+        if: ${{ always() && hashFiles('reports/trivy-backend.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: reports/trivy-backend.sarif
 
       - name: Enforce Trivy frontend gate
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: "sonbarse17/frontend:${{ github.sha }}"
-          format: "table"
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/work" \
+            -w /work \
+            aquasec/trivy:0.56.1 \
+            image sonbarse17/frontend:${{ github.sha }} \
+            --vuln-type os,library \
+            --ignore-unfixed \
+            --severity CRITICAL,HIGH \
+            --exit-code 1 \
+            --format table
 
       - name: Enforce Trivy backend gate
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: "sonbarse17/backend:${{ github.sha }}"
-          format: "table"
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/work" \
+            -w /work \
+            aquasec/trivy:0.56.1 \
+            image sonbarse17/backend:${{ github.sha }} \
+            --vuln-type os,library \
+            --ignore-unfixed \
+            --severity CRITICAL,HIGH \
+            --exit-code 1 \
+            --format table

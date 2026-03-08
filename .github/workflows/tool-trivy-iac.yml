@@ -11,9 +11,6 @@ jobs:
   analyze-iac:
     name: Trivy IaC Scan
     runs-on: ubuntu-latest
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
-      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,26 +19,28 @@ jobs:
         run: mkdir -p reports
 
       - name: Run Trivy IaC scan (SARIF report)
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: "config"
-          hide-progress: false
-          format: "sarif"
-          output: "reports/trivy-iac.sarif"
-          exit-code: "0"
-          ignore-unfixed: true
-          severity: "CRITICAL,HIGH"
+        run: |
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            aquasec/trivy:0.56.1 \
+            config . \
+            --severity CRITICAL,HIGH \
+            --exit-code 0 \
+            --format sarif \
+            --output reports/trivy-iac.sarif
 
       - name: Run Trivy IaC scan (JSON report)
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: "config"
-          hide-progress: false
-          format: "json"
-          output: "reports/trivy-iac.json"
-          exit-code: "0"
-          ignore-unfixed: true
-          severity: "CRITICAL,HIGH"
+        run: |
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            aquasec/trivy:0.56.1 \
+            config . \
+            --severity CRITICAL,HIGH \
+            --exit-code 0 \
+            --format json \
+            --output reports/trivy-iac.json
 
       - name: Upload Trivy IaC reports
         if: ${{ always() }}
@@ -49,20 +48,21 @@ jobs:
         with:
           name: trivy-iac-reports
           path: reports
-          if-no-files-found: warn
+          if-no-files-found: ignore
 
       - name: Upload Trivy IaC SARIF to GitHub Security
-        if: ${{ always() }}
-        uses: github/codeql-action/upload-sarif@v3
+        if: ${{ always() && hashFiles('reports/trivy-iac.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: reports/trivy-iac.sarif
 
       - name: Enforce Trivy IaC gate
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: "config"
-          hide-progress: false
-          format: "table"
-          exit-code: "1"
-          ignore-unfixed: true
-          severity: "CRITICAL,HIGH"
+        run: |
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            aquasec/trivy:0.56.1 \
+            config . \
+            --severity CRITICAL,HIGH \
+            --exit-code 1 \
+            --format table
