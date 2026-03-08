@@ -7,7 +7,7 @@ RUN npm ci
 
 COPY . .
 
-FROM gcr.io/distroless/nodejs20-debian11
+FROM gcr.io/distroless/nodejs20-debian12
 
 WORKDIR /app
 
