@@ -92,6 +92,14 @@ jobs:
           path: reports
           if-no-files-found: ignore
 
+      - name: Set unique SARIF automation IDs
+        if: ${{ always() }}
+        run: |
+          jq '.runs[].automationDetails.id = "trivy-frontend"' reports/trivy-frontend.sarif > reports/trivy-frontend.patched.sarif
+          mv reports/trivy-frontend.patched.sarif reports/trivy-frontend.sarif
+          jq '.runs[].automationDetails.id = "trivy-backend"' reports/trivy-backend.sarif > reports/trivy-backend.patched.sarif
+          mv reports/trivy-backend.patched.sarif reports/trivy-backend.sarif
+
       - name: Upload Frontend Trivy SARIF to GitHub Security
         if: ${{ always() && hashFiles('reports/trivy-frontend.sarif') != '' }}
         uses: github/codeql-action/upload-sarif@v4
